@@ -126,24 +126,32 @@ public class TransPass2 extends Tree.Visitor {
 		assign.left.accept(this);
 		assign.expr.accept(this);
 		switch (assign.left.lvKind) {
-		case ARRAY_ELEMENT:
-			Tree.Indexed arrayRef = (Tree.Indexed) assign.left;
-			Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
-			Temp t = tr.genMul(arrayRef.index.val, esz);
-			Temp base = tr.genAdd(arrayRef.array.val, t);
-			tr.genStore(assign.expr.val, base, 0);
-			break;
-		case MEMBER_VAR:
-			Tree.Ident varRef = (Tree.Ident) assign.left;
-			tr.genStore(assign.expr.val, varRef.owner.val, varRef.symbol
-					.getOffset());
-			break;
-		case PARAM_VAR:
-		case LOCAL_VAR:
-			tr.genAssign(((Tree.Ident) assign.left).symbol.getTemp(),
-					assign.expr.val);
-			break;
+			case ARRAY_ELEMENT:
+				Tree.Indexed arrayRef = (Tree.Indexed) assign.left;
+				Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
+				Temp t = tr.genMul(arrayRef.index.val, esz);
+				Temp base = tr.genAdd(arrayRef.array.val, t);
+				tr.genStore(assign.expr.val, base, 0);
+				break;
+			case MEMBER_VAR:
+				Tree.Ident varRef = (Tree.Ident) assign.left;
+				tr.genStore(assign.expr.val, varRef.owner.val, varRef.symbol
+						.getOffset());
+				break;
+			case PARAM_VAR:
+			case LOCAL_VAR:
+				tr.genAssign(((Tree.Ident) assign.left).symbol.getTemp(),
+						assign.expr.val);
+				break;
 		}
+	}
+
+	@Override
+	public void visitScopy(Tree.Scopy scopy) {
+
+		scopy.expr.accept(this);
+		tr.genAssign(scopy.symbol.getTemp(), scopy.expr.val);
+
 	}
 
 	@Override

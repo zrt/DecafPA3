@@ -1,9 +1,9 @@
 Exception in thread "main" java.lang.NullPointerException
-	at decaf.translate.TransPass2.visitIdent(TransPass2.java:251)
+	at decaf.translate.TransPass2.visitIdent(TransPass2.java:259)
 	at decaf.tree.Tree$Ident.accept(Tree.java:1213)
 	at decaf.translate.TransPass2.visitAssign(TransPass2.java:126)
 	at decaf.tree.Tree$Assign.accept(Tree.java:888)
-	at decaf.translate.TransPass2.visitBlock(TransPass2.java:188)
+	at decaf.translate.TransPass2.visitBlock(TransPass2.java:196)
 	at decaf.tree.Tree$Block.accept(Tree.java:522)
 	at decaf.translate.TransPass2.visitMethodDef(TransPass2.java:40)
 	at decaf.tree.Tree$MethodDef.accept(Tree.java:441)

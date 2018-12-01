@@ -593,6 +593,7 @@ public class TypeCheck extends Tree.Visitor {
 				}
 			}
 		}
+		scopy.symbol = (Variable) s_ident;
 	}
 
 	// visitGuardedStmt

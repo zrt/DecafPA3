@@ -1376,13 +1376,12 @@ public abstract class Tree {
      */
     public static class Scopy extends Tree {
 
-        public String lvalue;
         public String ident;
         public Expr expr;
+        public Variable symbol;
 
         public Scopy(String lvalue, Expr expr, Location loc) {
             super(SCOPY, loc);
-            this.lvalue = lvalue;
             this.ident = lvalue;
             this.expr = expr;
         }
