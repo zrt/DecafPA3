@@ -1,3 +1,43 @@
+_T0
+false
+string
+(3,38) -> variable @a : string
+_T0
+_T1
+false
+string
+(3,48) -> variable @b : string
+_T1
+_T0
+false
+string
+(3,38) -> variable @a : string
+_T0
+_T1
+false
+string
+(3,48) -> variable @b : string
+_T1
+_T2
+false
+string
+(12,41) -> variable @a : string
+_T2
+_T3
+false
+string
+(12,51) -> variable @b : string
+_T3
+_T2
+false
+string
+(12,41) -> variable @a : string
+_T2
+_T3
+false
+string
+(12,51) -> variable @b : string
+_T3
 VTABLE(_Main) {
     <empty>
     Main

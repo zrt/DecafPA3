@@ -340,6 +340,7 @@ public class TypeCheck extends Tree.Visitor {
 			if (v == null) {
 				if(ident.isVar){
 					ident.type = BaseType.UNKNOWN;
+					ident.lvKind = Tree.LValue.Kind.LOCAL_VAR;
 				}else{
 					issueError(new UndeclVarError(ident.getLocation(), ident.name));
 					ident.type = BaseType.ERROR;
@@ -349,6 +350,9 @@ public class TypeCheck extends Tree.Visitor {
 				// is var , issue Error! [todo]
 				if(ident.isVar){
 					ident.type = BaseType.UNKNOWN;
+					Variable var = (Variable) v;
+					ident.symbol = var;
+					ident.lvKind = Tree.LValue.Kind.LOCAL_VAR;
 				}else{
 					Variable var = (Variable) v;
 					ident.type = var.getType();
@@ -485,6 +489,8 @@ public class TypeCheck extends Tree.Visitor {
 			Tree.Ident ident = (Tree.Ident) assign.left;
 			Variable v = new Variable(ident.name, assign.expr.type,
 					ident.getLocation());
+//			ident.type = assign.expr.type;
+			ident.symbol = v;
 			table.declare(v);
 		}
 	}

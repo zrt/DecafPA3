@@ -255,6 +255,11 @@ public class TransPass2 extends Tree.Visitor {
 		if(ident.lvKind == Tree.LValue.Kind.MEMBER_VAR){
 			ident.owner.accept(this);
 		}
+		if(ident.isVar){
+			Temp t = Temp.createTempI4();
+			t.sym = ident.symbol;
+			ident.symbol.setTemp(t);
+		}
 		
 		switch (ident.lvKind) {
 		case MEMBER_VAR:

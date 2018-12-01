@@ -101,4 +101,19 @@ public class TransPass1 extends Tree.Visitor {
 		objectSize += OffsetCounter.WORD_SIZE;
 	}
 
+	@Override
+	public void visitIdent(Tree.Ident ident) {
+		if(ident.isVar){
+			vars.add(ident.symbol);
+			objectSize += OffsetCounter.WORD_SIZE;
+		}
+
+	}
+
+	@Override
+	public void visitAssign(Tree.Assign assign) {
+		assign.left.accept(this);
+	}
+
+
 }

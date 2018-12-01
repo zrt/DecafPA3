@@ -1200,6 +1200,7 @@ public abstract class Tree {
         public Variable symbol;
         public boolean isDefined;
         public boolean isVar;
+//        public Temp val;
 
         public Ident(Expr owner, String name, boolean isVar, Location loc) {
             super(IDENT, loc);

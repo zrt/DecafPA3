@@ -1,3 +1,13 @@
+_T14
+false
+int
+(14,7) -> variable c : int
+_T14
+_T13
+false
+int[]
+(13,9) -> variable a : int[]
+_T13
 Exception in thread "main" java.lang.NullPointerException
 	at decaf.tac.Tac.toString(Tac.java:258)
 	at java.lang.String.valueOf(String.java:2994)
