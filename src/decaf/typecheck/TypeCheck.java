@@ -31,6 +31,15 @@ import decaf.error.RefNonStaticError;
 import decaf.error.SubNotIntError;
 import decaf.error.ThisInStaticFuncError;
 import decaf.error.UndeclVarError;
+import decaf.error.BadScopyArgError;
+import decaf.error.BadScopySrcError;
+import decaf.error.BadSealedInherError;
+import decaf.error.BadArrIndexError;
+import decaf.error.BadArrOperArgError;
+import decaf.error.BadTestExpr;
+import decaf.error.BadDefError;
+import decaf.error.BadVarTypeError;
+import decaf.error.BadForeachTypeError;
 import decaf.frontend.Parser;
 import decaf.scope.ClassScope;
 import decaf.scope.FormalScope;
@@ -42,6 +51,7 @@ import decaf.symbol.Function;
 import decaf.symbol.Symbol;
 import decaf.symbol.Variable;
 import decaf.type.*;
+
 
 public class TypeCheck extends Tree.Visitor {
 
@@ -328,27 +338,40 @@ public class TypeCheck extends Tree.Visitor {
 			Symbol v = table.lookupBeforeLocation(ident.name, ident
 					.getLocation());
 			if (v == null) {
-				issueError(new UndeclVarError(ident.getLocation(), ident.name));
-				ident.type = BaseType.ERROR;
-			} else if (v.isVariable()) {
-				Variable var = (Variable) v;
-				ident.type = var.getType();
-				ident.symbol = var;
-				if (var.isLocalVar()) {
-					ident.lvKind = Tree.LValue.Kind.LOCAL_VAR;
-				} else if (var.isParam()) {
-					ident.lvKind = Tree.LValue.Kind.PARAM_VAR;
-				} else {
-					if (currentFunction.isStatik()) {
-						issueError(new RefNonStaticError(ident.getLocation(),
-								currentFunction.getName(), ident.name));
-					} else {
-						ident.owner = new Tree.ThisExpr(ident.getLocation());
-						ident.owner.accept(this);
-					}
-					ident.lvKind = Tree.LValue.Kind.MEMBER_VAR;
+				if(ident.isVar){
+					ident.type = BaseType.UNKNOWN;
+				}else{
+					issueError(new UndeclVarError(ident.getLocation(), ident.name));
+					ident.type = BaseType.ERROR;
 				}
+
+			} else if (v.isVariable()) {
+				// is var , issue Error! [todo]
+				if(ident.isVar){
+					ident.type = BaseType.UNKNOWN;
+				}else{
+					Variable var = (Variable) v;
+					ident.type = var.getType();
+					ident.symbol = var;
+					if (var.isLocalVar()) {
+						ident.lvKind = Tree.LValue.Kind.LOCAL_VAR;
+					} else if (var.isParam()) {
+						ident.lvKind = Tree.LValue.Kind.PARAM_VAR;
+					} else {
+						if (currentFunction.isStatik()) {
+							issueError(new RefNonStaticError(ident.getLocation(),
+									currentFunction.getName(), ident.name));
+						} else {
+							ident.owner = new Tree.ThisExpr(ident.getLocation());
+							ident.owner.accept(this);
+						}
+						ident.lvKind = Tree.LValue.Kind.MEMBER_VAR;
+					}
+				}
+
 			} else {
+				// is var , issue Error! [todo]
+
 				ident.type = v.getType();
 				if (v.isClass()) {
 					if (ident.usedForRef) {
@@ -423,6 +446,17 @@ public class TypeCheck extends Tree.Visitor {
 		for (Tree.ClassDef cd : program.classes) {
 			cd.accept(this);
 		}
+
+		for (Tree.ClassDef cd : program.classes) {
+			if(cd.sealed){
+				for (Tree.ClassDef cd2 : program.classes) {
+					if(cd.name.equals(cd2.parent)){
+						issueError(new BadSealedInherError(cd2.loc));
+					}
+				}
+			}
+		}
+
 		table.close();
 	}
 
@@ -441,10 +475,17 @@ public class TypeCheck extends Tree.Visitor {
 		assign.expr.accept(this);
 		if (!assign.left.type.equal(BaseType.ERROR)
 				&& (assign.left.type.isFuncType() || !assign.expr.type
-						.compatible(assign.left.type))) {
+						.compatible(assign.left.type)) && !assign.left.type.equal(BaseType.UNKNOWN)) {
 			issueError(new IncompatBinOpError(assign.getLocation(),
 					assign.left.type.toString(), "=", assign.expr.type
 							.toString()));
+		}
+		if(assign.left.type.equal(BaseType.UNKNOWN)){
+			assign.left.type=assign.expr.type;
+			Tree.Ident ident = (Tree.Ident) assign.left;
+			Variable v = new Variable(ident.name, assign.expr.type,
+					ident.getLocation());
+			table.declare(v);
 		}
 	}
 
@@ -490,7 +531,7 @@ public class TypeCheck extends Tree.Visitor {
 			i++;
 			if (!e.type.equal(BaseType.ERROR) && !e.type.equal(BaseType.BOOL)
 					&& !e.type.equal(BaseType.INT)
-					&& !e.type.equal(BaseType.STRING)) {
+					&& !e.type.equal(BaseType.STRING)&& !e.type.equal(BaseType.UNKNOWN)) {
 				issueError(new BadPrintArgError(e.getLocation(), Integer
 						.toString(i), e.type.toString()));
 			}
@@ -529,22 +570,157 @@ public class TypeCheck extends Tree.Visitor {
 		breaks.pop();
 	}
 
+	// Scopy
+	@Override
+	public void visitScopy(Tree.Scopy scopy) {
+		Symbol s_ident = table.lookup(scopy.ident, true);
+		scopy.expr.accept(this);
+		if(s_ident == null){
+			issueError(new UndeclVarError(scopy.getLocation(),
+					scopy.ident));
+			if(!scopy.expr.type.isClassType()){
+				issueError(new BadScopyArgError(scopy.getLocation(), "src", scopy.expr.type.toString() ));
+			}
+		}else{
+			if(s_ident.getType().isClassType()){
+				if(scopy.expr.type != s_ident.getType()){
+					issueError(new BadScopySrcError(scopy.getLocation(), s_ident.getType().toString(),scopy.expr.type.toString() ));
+				}
+			}else{
+				issueError(new BadScopyArgError(scopy.getLocation(),"dst", s_ident.getType().toString()));
+				if(!scopy.expr.type.isClassType()){
+					issueError(new BadScopyArgError(scopy.getLocation(), "src", scopy.expr.type.toString() ));
+				}
+			}
+		}
+	}
+
+	// visitGuardedStmt
+	@Override
+	public void visitGuardedStmt(Tree.GuardedStmt gstmt){
+		if(gstmt.branchs != null){
+			for(Tree.IfSubStmt stmt : gstmt.branchs){
+				stmt.accept(this);
+			}
+		}
+
+
+	}
+
+	// visitIfSubStmt
+	@Override
+	public void visitIfSubStmt(Tree.IfSubStmt stmt){
+		stmt.expr.accept(this);
+		if(stmt.stmt!=null){
+			stmt.stmt.accept(this);
+		}
+		checkTestExpr(stmt.expr);
+	}
+
 	// visiting types
 	@Override
 	public void visitTypeIdent(Tree.TypeIdent type) {
 		switch (type.typeTag) {
-		case Tree.VOID:
-			type.type = BaseType.VOID;
-			break;
-		case Tree.INT:
-			type.type = BaseType.INT;
-			break;
-		case Tree.BOOL:
-			type.type = BaseType.BOOL;
-			break;
-		default:
-			type.type = BaseType.STRING;
+			case Tree.VOID:
+				type.type = BaseType.VOID;
+				break;
+			case Tree.INT:
+				type.type = BaseType.INT;
+				break;
+			case Tree.BOOL:
+				type.type = BaseType.BOOL;
+				break;
+			default:
+				type.type = BaseType.STRING;
 		}
+	}
+
+	// visiting Modmod
+	@Override
+	public void visitModmod(Tree.Modmod exp) {
+		exp.left.accept(this);
+		exp.right.accept(this);
+		exp.type =  new ArrayType(exp.left.type);
+		if (exp.left.type.equal(BaseType.ERROR)) {
+			exp.type = BaseType.ERROR;
+		} else if (exp.left.type.equal(BaseType.VOID) || exp.left.type.equal(BaseType.UNKNOWN)  ) {
+			issueError(new BadArrElementError(exp.left.loc));
+			exp.type = BaseType.ERROR;
+		}
+		if(!exp.right.type.equal(BaseType.INT)){
+			issueError(new BadArrIndexError(exp.right.loc));
+		}
+
+	}
+
+	// visiting default
+	@Override
+	public void visitDefault(Tree.Default exp){
+		exp.arr.accept(this);
+		exp.index.accept(this);
+		exp.defa.accept(this);
+		exp.type = exp.defa.type;
+		if(!exp.arr.type.isArrayType()){
+			issueError(new BadArrOperArgError(exp.loc));
+			exp.type = BaseType.ERROR;
+		}else {
+			if (!exp.index.type.equal(BaseType.INT)) {
+				issueError(new BadArrIndexError(exp.loc));
+				exp.type = exp.defa.type;
+			}
+//			if (exp.defa.type.equal(BaseType.ERROR)) {
+//				exp.type = BaseType.ERROR;
+//			} else if (exp.defa.type.equal(BaseType.VOID) || exp.defa.type.equal(BaseType.UNKNOWN)) {
+//				issueError(new BadArrElementError(exp.loc));
+//				exp.type = BaseType.ERROR;
+//			}
+			if (exp.arr.type.isArrayType() && !exp.arr.type.equal(new ArrayType(exp.defa.type))) {
+				issueError(new BadDefError(exp.loc, ((ArrayType) exp.arr.type).getElementType().toString(), exp.defa.type.toString()));
+				exp.type = ((ArrayType) exp.arr.type).getElementType();
+			}
+		}
+	}
+
+	@Override
+	public void visitForeachStmt(Tree.ForeachStmt stmt){
+		stmt.whileexpr.accept(this);
+		stmt.inexpr.accept(this);
+		if(!stmt.isVar)
+			stmt.type.accept(this);
+		checkTestExpr(stmt.whileexpr);
+
+		table.open(((Tree.Block)stmt.stmt).associatedScope);
+		if(stmt.isVar){
+			if(stmt.inexpr.type.equal(BaseType.ERROR) || stmt.inexpr.type.equal(BaseType.VOID)){
+				Variable v = new Variable(stmt.ident, BaseType.ERROR,
+						stmt.loc);
+				table.declare(v);
+			}else if(stmt.inexpr.type.isArrayType()){
+				Variable v = new Variable(stmt.ident, ((ArrayType)stmt.inexpr.type).getElementType(),
+						stmt.loc);
+				table.declare(v);
+			}else{
+				issueError(new BadArrOperArgError(stmt.loc));
+				Variable v = new Variable(stmt.ident, BaseType.ERROR,
+						stmt.loc);
+				table.declare(v);
+			}
+		}else{
+			if(stmt.inexpr.type.equal(BaseType.ERROR) || stmt.inexpr.type.equal(BaseType.VOID)){
+
+			}else if((!stmt.inexpr.type.isArrayType())){
+				issueError(new BadArrOperArgError(stmt.loc));
+			}else if((!((ArrayType)stmt.inexpr.type).getElementType().compatible(stmt.type.type))){
+				issueError(new BadForeachTypeError(stmt.loc, stmt.type.type.toString(), ((ArrayType)stmt.inexpr.type).getElementType().toString()));
+			}
+		}
+		table.close();
+
+		breaks.add(stmt);
+		if (stmt.stmt != null) {
+			stmt.stmt.accept(this);
+		}
+		breaks.pop();
 	}
 
 	@Override

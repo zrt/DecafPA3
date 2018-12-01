@@ -112,7 +112,7 @@ public class BuildSym extends Tree.Visitor {
 					.getLocation());
 			return;
 		}
-		Variable v = new Variable(varDef.name, varDef.type.type, 
+		Variable v = new Variable(varDef.name, varDef.type.type,
 				varDef.getLocation());
 		Symbol sym = table.lookup(varDef.name, true);
 		if (sym != null) {
@@ -158,17 +158,17 @@ public class BuildSym extends Tree.Visitor {
 	@Override
 	public void visitTypeIdent(Tree.TypeIdent type) {
 		switch (type.typeTag) {
-		case Tree.VOID:
-			type.type = BaseType.VOID;
-			break;
-		case Tree.INT:
-			type.type = BaseType.INT;
-			break;
-		case Tree.BOOL:
-			type.type = BaseType.BOOL;
-			break;
-		default:
-			type.type = BaseType.STRING;
+			case Tree.VOID:
+				type.type = BaseType.VOID;
+				break;
+			case Tree.INT:
+				type.type = BaseType.INT;
+				break;
+			case Tree.BOOL:
+				type.type = BaseType.BOOL;
+				break;
+			default:
+				type.type = BaseType.STRING;
 		}
 	}
 
@@ -198,16 +198,7 @@ public class BuildSym extends Tree.Visitor {
 		}
 	}
 
-	// for VarDecl in LocalScope
-	@Override
-	public void visitBlock(Tree.Block block) {
-		block.associatedScope = new LocalScope(block);
-		table.open(block.associatedScope);
-		for (Tree s : block.block) {
-			s.accept(this);
-		}
-		table.close();
-	}
+
 
 	@Override
 	public void visitForLoop(Tree.ForLoop forLoop) {
@@ -305,5 +296,96 @@ public class BuildSym extends Tree.Visitor {
 		FuncType type = (FuncType) main.getType();
 		return type.getReturnType().equal(BaseType.VOID)
 				&& type.numOfParams() == 0 && ((Function) main).isStatik();
+	}
+
+	@Override
+	public void visitAssign(Tree.Assign assign) {
+		assign.left.accept(this);
+	}
+
+
+	@Override
+	public void visitForeachStmt(Tree.ForeachStmt stmt){
+		((Tree.Block)stmt.stmt).associatedScope = new LocalScope((Tree.Block)stmt.stmt);
+		((Tree.Block)stmt.stmt).nonew = true;
+		table.open(((Tree.Block)stmt.stmt).associatedScope);
+		if(stmt.isVar){
+			Variable v = new Variable(stmt.ident, BaseType.UNKNOWN,
+					stmt.getLocation());
+			Symbol sym = table.lookup(stmt.ident, true);
+			if (sym != null) {
+				if (table.getCurrentScope().equals(sym.getScope())) {
+					issueError(new DeclConflictError(v.getLocation(), v.getName(),
+							sym.getLocation()));
+				} else if ((sym.getScope().isFormalScope() || sym.getScope()
+						.isLocalScope())) {
+					issueError(new DeclConflictError(v.getLocation(), v.getName(),
+							sym.getLocation()));
+				} else {
+					table.declare(v);
+				}
+			} else {
+				table.declare(v);
+			}
+			stmt.symbol = v;
+		}else{
+			stmt.type.accept(this);
+			Variable v = new Variable(stmt.ident, stmt.type.type,
+					stmt.getLocation());
+			Symbol sym = table.lookup(stmt.ident, true);
+			if (sym != null) {
+				if (table.getCurrentScope().equals(sym.getScope())) {
+					issueError(new DeclConflictError(v.getLocation(), v.getName(),
+							sym.getLocation()));
+				} else if ((sym.getScope().isFormalScope() || sym.getScope()
+						.isLocalScope())) {
+					issueError(new DeclConflictError(v.getLocation(), v.getName(),
+							sym.getLocation()));
+				} else {
+					table.declare(v);
+				}
+			} else {
+				table.declare(v);
+			}
+			stmt.symbol = v;
+		}
+
+		table.close();
+
+		stmt.stmt.accept(this);
+	}
+
+	// for VarDecl in LocalScope
+	@Override
+	public void visitBlock(Tree.Block block) {
+		if(!block.nonew)
+			block.associatedScope = new LocalScope(block);
+		table.open(block.associatedScope);
+		for (Tree s : block.block) {
+			s.accept(this);
+		}
+		table.close();
+	}
+
+
+	// visitGuardedStmt
+	@Override
+	public void visitGuardedStmt(Tree.GuardedStmt gstmt){
+		if(gstmt.branchs != null){
+			for(Tree.IfSubStmt stmt : gstmt.branchs){
+				stmt.accept(this);
+			}
+		}
+
+	}
+
+	// visitIfSubStmt
+	@Override
+	public void visitIfSubStmt(Tree.IfSubStmt stmt){
+		stmt.expr.accept(this);
+		if(stmt.stmt!=null){
+			stmt.stmt.accept(this);
+		}
+//		checkTestExpr(stmt.expr);
 	}
 }
