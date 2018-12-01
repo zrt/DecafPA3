@@ -351,6 +351,28 @@ public class TransPass2 extends Tree.Visitor {
 		}
 	}
 
+	// visitGuardedStmt
+	@Override
+	public void visitGuardedStmt(Tree.GuardedStmt gstmt){
+		if(gstmt.branchs != null){
+			for(Tree.IfSubStmt stmt : gstmt.branchs){
+				stmt.accept(this);
+			}
+		}
+	}
+
+	// visitIfSubStmt
+	@Override
+	public void visitIfSubStmt(Tree.IfSubStmt stmt){
+		stmt.expr.accept(this);
+		Label exit = Label.createLabel();
+		tr.genBeqz(stmt.expr.val, exit);
+		if (stmt.stmt != null) {
+			stmt.stmt.accept(this);
+		}
+		tr.genMark(exit);
+	}
+
 	@Override
 	public void visitNewArray(Tree.NewArray newArray) {
 		newArray.length.accept(this);
