@@ -181,12 +181,14 @@ public class Translater {
 	}
 
 	public Temp genDiv(Temp src1, Temp src2) {
+		genCheckDivZero(src2);
 		Temp dst = Temp.createTempI4();
 		append(Tac.genDiv(dst, src1, src2));
 		return dst;
 	}
 
 	public Temp genMod(Temp src1, Temp src2) {
+		genCheckDivZero(src2);
 		Temp dst = Temp.createTempI4();
 		append(Tac.genMod(dst, src1, src2));
 		return dst;
@@ -355,6 +357,16 @@ public class Translater {
 		genBeqz(cond, exit);
 		genMark(err);
 		Temp msg = genLoadStrConst(RuntimeError.ARRAY_INDEX_OUT_OF_BOUND);
+		genParm(msg);
+		genIntrinsicCall(Intrinsic.PRINT_STRING);
+		genIntrinsicCall(Intrinsic.HALT);
+		genMark(exit);
+	}
+	public void genCheckDivZero(Temp x) {
+		Label exit = Label.createLabel();
+		Temp cond = genEqu(x, genLoadImm4(0));
+		genBeqz(cond, exit);
+		Temp msg = genLoadStrConst(RuntimeError.DIV_ZERO);
 		genParm(msg);
 		genIntrinsicCall(Intrinsic.PRINT_STRING);
 		genIntrinsicCall(Intrinsic.HALT);
