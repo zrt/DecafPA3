@@ -51,6 +51,10 @@ public abstract class Symbol {
 		this.order = order;
 	}
 
+	public void setType(Type type) {
+		this.type = type;
+	}
+
 	public Location getLocation() {
 		return location;
 	}

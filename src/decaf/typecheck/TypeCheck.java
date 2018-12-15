@@ -487,11 +487,8 @@ public class TypeCheck extends Tree.Visitor {
 		if(assign.left.type.equal(BaseType.UNKNOWN)){
 			assign.left.type=assign.expr.type;
 			Tree.Ident ident = (Tree.Ident) assign.left;
-			Variable v = new Variable(ident.name, assign.expr.type,
-					ident.getLocation());
 //			ident.type = assign.expr.type;
-			ident.symbol = v;
-			table.declare(v);
+			ident.symbol.setType(assign.expr.type);
 		}
 	}
 
@@ -690,27 +687,21 @@ public class TypeCheck extends Tree.Visitor {
 
 	@Override
 	public void visitForeachStmt(Tree.ForeachStmt stmt){
-		stmt.whileexpr.accept(this);
-		stmt.inexpr.accept(this);
 		if(!stmt.isVar)
 			stmt.type.accept(this);
-		checkTestExpr(stmt.whileexpr);
+
 
 		table.open(((Tree.Block)stmt.stmt).associatedScope);
+
+		stmt.inexpr.accept(this);
 		if(stmt.isVar){
 			if(stmt.inexpr.type.equal(BaseType.ERROR) || stmt.inexpr.type.equal(BaseType.VOID)){
 				Variable v = new Variable(stmt.ident, BaseType.ERROR,
 						stmt.loc);
 				table.declare(v);
 			}else if(stmt.inexpr.type.isArrayType()){
-				Variable v = new Variable(stmt.ident, ((ArrayType)stmt.inexpr.type).getElementType(),
-						stmt.loc);
-				table.declare(v);
-			}else{
-				issueError(new BadArrOperArgError(stmt.loc));
-				Variable v = new Variable(stmt.ident, BaseType.ERROR,
-						stmt.loc);
-				table.declare(v);
+
+				stmt.symbol.setType( ((ArrayType)stmt.inexpr.type).getElementType());
 			}
 		}else{
 			if(stmt.inexpr.type.equal(BaseType.ERROR) || stmt.inexpr.type.equal(BaseType.VOID)){
@@ -721,6 +712,11 @@ public class TypeCheck extends Tree.Visitor {
 				issueError(new BadForeachTypeError(stmt.loc, stmt.type.type.toString(), ((ArrayType)stmt.inexpr.type).getElementType().toString()));
 			}
 		}
+		if(stmt.whileexpr!=null){
+			stmt.whileexpr.accept(this);
+			checkTestExpr(stmt.whileexpr);
+		}
+
 		table.close();
 
 		breaks.add(stmt);

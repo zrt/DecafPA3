@@ -10,6 +10,7 @@ import decaf.tac.Label;
 import decaf.tac.Temp;
 import decaf.type.BaseType;
 import decaf.type.ClassType;
+import decaf.tac.Tac;
 
 public class TransPass2 extends Tree.Visitor {
 
@@ -402,9 +403,7 @@ public class TransPass2 extends Tree.Visitor {
 	public void visitModmod(Tree.Modmod exp) {
 		exp.left.accept(this);
 		exp.right.accept(this);
-//		System.out.println("hhhhhh");
 		if(exp.left.type.isClassType()){
-//			System.out.println("hahaha");
 			exp.val = tr.genModmodClass(exp.left.val, exp.right.val, ((ClassType)exp.left.type).getSymbol());
 		}else{
 			exp.val = tr.genModmod(exp.left.val, exp.right.val);
@@ -447,5 +446,52 @@ public class TransPass2 extends Tree.Visitor {
 			tr.genClassCast(typeCast.expr.val, typeCast.symbol);
 		}
 		typeCast.val = typeCast.expr.val;
+	}
+
+	@Override
+	public void visitForeachStmt(Tree.ForeachStmt stmt){
+
+
+		Temp tt = Temp.createTempI4();
+		tt.sym = stmt.symbol;
+		stmt.symbol.setTemp(tt);
+//		if (stmt.stmt != null) {
+//			stmt.stmt.accept(this);
+//		}
+
+		Label loop = Label.createLabel();
+		stmt.inexpr.accept(this);
+		Temp arr = stmt.inexpr.val;
+		Temp len = tr.genLoad(arr, -OffsetCounter.WORD_SIZE);
+		Temp num = tr.genLoadImm4(0);
+		tr.genMark(loop);
+
+		Label exit = Label.createLabel();
+
+
+		Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
+		Temp t = tr.genMul(num, esz);
+		Temp base = tr.genAdd(arr, t);
+		Temp cond = tr.genNeq(num,len);
+        tr.append(Tac.genAdd(num,num,tr.genLoadImm4(1)));
+		tr.genBeqz(cond, exit);
+//		System.out.println("hahaha");
+//		System.out.println(stmt.symbol.getTemp());
+		tr.genAssign(stmt.symbol.getTemp(), tr.genLoad(base,0));
+//		tr.genStore(base,stmt.symbol.getTemp(),0);
+
+
+		if(stmt.whileexpr != null){
+			stmt.whileexpr.accept(this);
+			tr.genBeqz(stmt.whileexpr.val, exit);
+		}
+
+		loopExits.push(exit);
+		if (stmt.stmt != null) {
+			stmt.stmt.accept(this);
+		}
+		tr.genBranch(loop);
+		loopExits.pop();
+		tr.genMark(exit);
 	}
 }

@@ -11,6 +11,7 @@ import decaf.symbol.Function;
 import decaf.symbol.Symbol;
 import decaf.symbol.Variable;
 import decaf.tac.Temp;
+import decaf.type.BaseType;
 
 public class TransPass1 extends Tree.Visitor {
 	private Translater tr;
@@ -99,6 +100,18 @@ public class TransPass1 extends Tree.Visitor {
 	public void visitVarDef(Tree.VarDef varDef) {
 		vars.add(varDef.symbol);
 		objectSize += OffsetCounter.WORD_SIZE;
+	}
+
+	@Override
+	public void visitForeachStmt(Tree.ForeachStmt stmt){
+		if(!stmt.isVar)
+			stmt.type.accept(this);
+		vars.add(stmt.symbol);
+		objectSize += OffsetCounter.WORD_SIZE;
+
+		if (stmt.stmt != null) {
+			stmt.stmt.accept(this);
+		}
 	}
 
 	@Override
