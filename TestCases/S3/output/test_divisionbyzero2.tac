@@ -1,8 +1,3 @@
-_T3
-false
-int
-(3,11) -> variable a : int
-_T3
 VTABLE(_Main) {
     <empty>
     Main
