@@ -20,6 +20,7 @@ import decaf.tac.Tac;
 import decaf.tac.Temp;
 import decaf.tac.VTable;
 import decaf.type.BaseType;
+import decaf.type.ClassType;
 import decaf.type.Type;
 
 public class Translater {
@@ -360,11 +361,45 @@ public class Translater {
 		genMark(exit);
 	}
 
+	public Temp genDefault(Temp array, Temp index, Temp base, Temp defa) {
+		Temp length = genLoad(array, -OffsetCounter.WORD_SIZE);
+		genParm(genLoadImm4(OffsetCounter.WORD_SIZE));
+		Temp ret = genIntrinsicCall(Intrinsic.ALLOCATE);
+
+		Temp cond = genLes(index, length);
+		Label err = Label.createLabel();
+		genBeqz(cond, err);
+		cond = genLes(index, genLoadImm4(0));
+		Label exit = Label.createLabel();
+		Label exit2 =  Label.createLabel();
+		genBeqz(cond, exit);
+		genMark(err);
+		genStore(defa,ret,0);
+		Temp zero = genLoadImm4(0);
+		genBeqz(zero, exit2);
+		genMark(exit);
+        genStore(genLoad(base,0),ret,0);
+        genMark(exit2);
+
+		return genLoad(ret,0);
+	}
+
 	public void genCheckNewArraySize(Temp size) {
 		Label exit = Label.createLabel();
 		Temp cond = genLes(size, genLoadImm4(0));
 		genBeqz(cond, exit);
 		Temp msg = genLoadStrConst(RuntimeError.NEGATIVE_ARR_SIZE);
+		genParm(msg);
+		genIntrinsicCall(Intrinsic.PRINT_STRING);
+		genIntrinsicCall(Intrinsic.HALT);
+		genMark(exit);
+	}
+
+	public void genCheckNewModmodSize(Temp size) {
+		Label exit = Label.createLabel();
+		Temp cond = genLes(size, genLoadImm4(0));
+		genBeqz(cond, exit);
+		Temp msg = genLoadStrConst(RuntimeError.NEGATIVE_MODMOD_SIZE);
 		genParm(msg);
 		genIntrinsicCall(Intrinsic.PRINT_STRING);
 		genIntrinsicCall(Intrinsic.HALT);
@@ -391,6 +426,79 @@ public class Translater {
 		genMark(exit);
 		return obj;
 	}
+
+	public Temp genModmod(Temp E, Temp n) {
+		genCheckNewModmodSize(n);
+
+		Temp unit = genLoadImm4(OffsetCounter.WORD_SIZE);
+		Temp size = genAdd(unit, genMul(unit, n));
+		genParm(size);
+		Temp obj = genIntrinsicCall(Intrinsic.ALLOCATE);
+		genStore(n, obj, 0);
+		Label loop = Label.createLabel();
+		Label exit = Label.createLabel();
+		append(Tac.genAdd(obj, obj, size));
+		genMark(loop);
+		append(Tac.genSub(size, size, unit));
+		genBeqz(size, exit);
+		append(Tac.genSub(obj, obj, unit));
+		genStore(E, obj, 0);
+//		genScopy(obj, E);
+		genBranch(loop);
+		genMark(exit);
+		return obj;
+	}
+
+	public Temp genModmodClass(Temp E, Temp n, Class c) {
+		genCheckNewModmodSize(n);
+
+		Temp unit = genLoadImm4(OffsetCounter.WORD_SIZE);
+		Temp unit2 =  genLoadImm4(c.getSize());
+		Temp size = genAdd(unit, genMul(unit, n));
+		genParm(size);
+		Temp obj = genIntrinsicCall(Intrinsic.ALLOCATE);
+		genStore(n, obj, 0);
+		Label loop = Label.createLabel();
+		Label exit = Label.createLabel();
+		append(Tac.genAdd(obj, obj, size));
+		genMark(loop);
+		append(Tac.genSub(size, size, unit));
+		genBeqz(size, exit);
+		append(Tac.genSub(obj, obj, unit));
+		genParm(unit2);
+		Temp i_obj = genIntrinsicCall(Intrinsic.ALLOCATE);
+		genScopy2(i_obj, E, c);
+		genStore(i_obj, obj, 0);
+//		genScopy(obj, E);
+		genBranch(loop);
+		genMark(exit);
+		return obj;
+	}
+
+//	public Temp genModmodClass(Temp E, Temp n, Class c) {
+//		genCheckNewModmodSize(n);
+//
+//		Temp unit = genLoadImm4(c.getSize());
+//		Temp unit2 = genLoadImm4(OffsetCounter.WORD_SIZE);
+//		Temp size = genAdd(unit2, genMul(unit, n));
+//		genParm(size);
+//		Temp obj = genIntrinsicCall(Intrinsic.ALLOCATE);
+//		genStore(n, obj, 0);
+//		Label loop = Label.createLabel();
+//		Label exit = Label.createLabel();
+//		append(Tac.genAdd(obj, obj, size));
+//		append(Tac.genSub(size, size, unit2));
+//		append(Tac.genAdd(size, size, unit));
+//		genMark(loop);
+//		append(Tac.genSub(size, size, unit));
+//		genBeqz(size, exit);
+//		append(Tac.genSub(obj, obj, unit));
+////		genStore(E, obj, 0); // todo
+//		genScopy2(obj, E, c); // todo
+//		genBranch(loop);
+//		genMark(exit);
+//		return obj;
+//	}
 
 	public void genNewForClass(Class c) {
 		currentFuncty = new Functy();
@@ -426,6 +534,30 @@ public class Translater {
 		genStore(genLoadVTable(c.getVtable()), newObj, 0);
 		genReturn(newObj);
 		endFunc();
+	}
+
+	public void genScopy( Variable sym, Temp src){
+		Class c = ((ClassType)sym.getType()).getSymbol();
+		int time = c.getSize() / OffsetCounter.WORD_SIZE ;
+		Temp newObj = sym.getTemp();
+		if (time != 0) {
+			for (int i = 0; i < time; i++) {
+//				Temp tmp = genLoadImm4(src.value);
+				Temp src_val = genLoad(src , OffsetCounter.WORD_SIZE * (i ));
+				genStore(src_val, newObj, OffsetCounter.WORD_SIZE * (i ));
+			}
+		}
+	}
+
+	public void genScopy2(Temp dst, Temp src, Class c){
+		int time = c.getSize() / OffsetCounter.WORD_SIZE ;
+		Temp newObj = dst;
+		if (time != 0) {
+			for (int i = 0; i < time; i++) {
+				Temp src_val = genLoad(src , OffsetCounter.WORD_SIZE * (i ));
+				genStore(src_val, newObj, OffsetCounter.WORD_SIZE * (i ));
+			}
+		}
 	}
 
 	public Temp genInstanceof(Temp instance, Class c) {

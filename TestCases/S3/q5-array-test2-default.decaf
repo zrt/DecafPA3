@@ -3,6 +3,8 @@ class Main {
     	string[] a;
         a = "pa1" %%2;
 		string b;
+		//Print(a[0]);
+		//Print(a[1]);
 		b= a[0] default "pa2";
 		string c;
 		c= a[2] default "pa3";

@@ -9,6 +9,7 @@ import decaf.symbol.Variable;
 import decaf.tac.Label;
 import decaf.tac.Temp;
 import decaf.type.BaseType;
+import decaf.type.ClassType;
 
 public class TransPass2 extends Tree.Visitor {
 
@@ -150,8 +151,9 @@ public class TransPass2 extends Tree.Visitor {
 	public void visitScopy(Tree.Scopy scopy) {
 
 		scopy.expr.accept(this);
-		tr.genAssign(scopy.symbol.getTemp(), scopy.expr.val);
-
+//		tr.genAssign(scopy.symbol.getTemp(), scopy.expr.val);
+		tr.genScopy( scopy.symbol, scopy.expr.val);
+		// todo 把新对象地址存到scopy.symbol
 	}
 
 	@Override
@@ -243,11 +245,22 @@ public class TransPass2 extends Tree.Visitor {
 		indexed.array.accept(this);
 		indexed.index.accept(this);
 		tr.genCheckArrayIndex(indexed.array.val, indexed.index.val);
-		
+
 		Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
 		Temp t = tr.genMul(indexed.index.val, esz);
 		Temp base = tr.genAdd(indexed.array.val, t);
 		indexed.val = tr.genLoad(base, 0);
+	}
+
+	@Override
+	public void visitDefault(Tree.Default exp) {
+		exp.arr.accept(this);
+		exp.index.accept(this);
+		exp.defa.accept(this);
+		Temp esz = tr.genLoadImm4(OffsetCounter.WORD_SIZE);
+		Temp t = tr.genMul(exp.index.val, esz);
+		Temp base = tr.genAdd(exp.arr.val, t);
+		exp.val = tr.genDefault(exp.arr.val, exp.index.val, base, exp.defa.val);
 	}
 
 	@Override
@@ -382,6 +395,20 @@ public class TransPass2 extends Tree.Visitor {
 	public void visitNewArray(Tree.NewArray newArray) {
 		newArray.length.accept(this);
 		newArray.val = tr.genNewArray(newArray.length.val);
+	}
+
+	// visiting Modmod
+	@Override
+	public void visitModmod(Tree.Modmod exp) {
+		exp.left.accept(this);
+		exp.right.accept(this);
+//		System.out.println("hhhhhh");
+		if(exp.left.type.isClassType()){
+//			System.out.println("hahaha");
+			exp.val = tr.genModmodClass(exp.left.val, exp.right.val, ((ClassType)exp.left.type).getSymbol());
+		}else{
+			exp.val = tr.genModmod(exp.left.val, exp.right.val);
+		}
 	}
 
 	@Override
